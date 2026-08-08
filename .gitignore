@@ -1,0 +1,31 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Data files - don't upload raw CSVs or predictions
+data/raw/*.csv
+data/predictions/*.csv
+
+# dbt
+clinic_pipeline/target/
+clinic_pipeline/logs/
+clinic_pipeline/.user.yml
+
+# Airflow
+airflow_dags/__pycache__/
+logs/
+
+# Credentials - never upload these
+profiles.yml
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/

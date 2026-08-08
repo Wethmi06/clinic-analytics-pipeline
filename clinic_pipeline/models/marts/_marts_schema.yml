@@ -1,0 +1,91 @@
+version: 2
+
+models:
+  - name: dim_patients
+    description: One row per deduplicated, canonical patient.
+    columns:
+      - name: patient_id
+        description: Canonical patient identifier (post-deduplication).
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_doctors
+    columns:
+      - name: doctor_id
+        data_tests:
+          - unique
+          - not_null
+      - name: department_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_departments')
+              field: department_id
+      - name: clinic_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_clinics')
+              field: clinic_id
+
+  - name: dim_clinics
+    columns:
+      - name: clinic_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_departments
+    columns:
+      - name: department_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_diagnosis_codes
+    columns:
+      - name: icd10_code
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fact_appointments
+    description: One row per appointment, the project's core fact table.
+    columns:
+      - name: appointment_id
+        data_tests:
+          - unique
+          - not_null
+      - name: patient_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_patients')
+              field: patient_id
+      - name: doctor_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_doctors')
+              field: doctor_id
+      - name: status
+        data_tests:
+          - accepted_values:
+              values: ['attended', 'no_show', 'cancelled', 'scheduled']
+      # icd10_code is intentionally allowed to be null (~3% missing by
+      # design -- see stg_appointments.sql) so no not_null test here.
+      # That missingness is itself part of the data quality story.
+
+  - name: fact_billing
+    columns:
+      - name: billing_id
+        data_tests:
+          - unique
+          - not_null
+      - name: appointment_id
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('fact_appointments')
+              field: appointment_id

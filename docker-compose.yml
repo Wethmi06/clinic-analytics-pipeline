@@ -1,0 +1,116 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.1
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    _PIP_ADDITIONAL_REQUIREMENTS: "requests psycopg2-binary dbt-postgres==1.10.* dbt-core==1.10.*"
+    # Give Airflow tasks access to your clinic Postgres
+    CLINIC_DB_HOST: clinic_postgres
+    CLINIC_DB_PORT: '5432'
+    CLINIC_DB_NAME: clinic_db
+    CLINIC_DB_USER: clinic_user
+    CLINIC_DB_PASS: clinic_pass
+  volumes:
+    - ./airflow_dags:/opt/airflow/dags
+    - ./scripts:/opt/airflow/scripts
+    - ./data:/opt/airflow/data
+    - ./clinic_pipeline:/opt/airflow/clinic_pipeline
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    airflow_postgres:
+      condition: service_healthy
+  networks:
+    - clinic_net
+
+services:
+  # ── Your existing clinic database ──────────────────────────────────────────
+  clinic_postgres:
+    image: postgres:16
+    container_name: clinic_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: clinic_db
+      POSTGRES_USER: clinic_user
+      POSTGRES_PASSWORD: clinic_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - clinic_pg_data:/var/lib/postgresql/data
+    networks:
+      - clinic_net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "clinic_user", "-d", "clinic_db"]
+      interval: 5s
+      retries: 5
+
+  # ── Airflow's own metadata database ────────────────────────────────────────
+  airflow_postgres:
+    image: postgres:16
+    container_name: airflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    networks:
+      - clinic_net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  # ── Airflow initialisation (runs once, then exits) ──────────────────────────
+  airflow_init:
+    <<: *airflow-common
+    container_name: airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Clinic \
+          --lastname Admin \
+          --role Admin \
+          --email admin@clinic.local
+    restart: on-failure
+
+  # ── Airflow scheduler (triggers DAG runs on schedule) ──────────────────────
+  airflow_scheduler:
+    <<: *airflow-common
+    container_name: airflow_scheduler
+    command: scheduler
+    restart: unless-stopped
+
+  # ── Airflow webserver (the UI at localhost:8080) ────────────────────────────
+  airflow_webserver:
+    <<: *airflow-common
+    container_name: airflow_webserver
+    command: webserver
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  clinic_net:
+    driver: bridge
+
+volumes:
+  clinic_pg_data:
+  airflow_pg_data:
+  airflow_logs:

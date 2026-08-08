@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: public  # the raw_* tables were loaded into the public schema by load_to_postgres.py
+    tables:
+      - name: raw_clinics
+      - name: raw_diagnosis_codes
+      - name: raw_departments
+      - name: raw_doctors
+      - name: raw_patients
+      - name: raw_appointments
+      - name: raw_billing
