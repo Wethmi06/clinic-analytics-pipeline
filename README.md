@@ -209,6 +209,3 @@ Open `http://localhost:8501` for the dashboard and `http://localhost:8081` for t
 
 **Why a Random Forest over a simpler model?** Random Forest handles the mix of numeric and categorical features without scaling, is naturally resistant to overfitting on a dataset this size, and provides interpretable feature importances — useful for explaining which factors drive no-show risk.
 
----
-
-*Built as a portfolio project · Sri Lanka · 2025–2026*
